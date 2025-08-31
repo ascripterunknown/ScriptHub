@@ -1,30 +1,30 @@
--- Load WindUI
-local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
--- Services
+-- Kick if game not supported
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CollectionService = game:GetService("CollectionService")
-
 local player = Players.LocalPlayer
 local PlaceId = game.PlaceId
 
--- Supported games
 local supportedGames = {
     [537413528] = "Ninja Legends",
     [142823291] = "Murder Mystery 2",
 }
 
 if not supportedGames[PlaceId] then
-    warn("Game not supported.")
+    player:Kick("This game is not supported by Kat X.")
     return
 end
 
 print("Running in:", supportedGames[PlaceId])
 
+-- Load WindUI (make sure this URL points to a raw .lua file)
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/main.lua"))()
+
+-- Services
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+
 -- Create Window
-local Window = WindUI:CreateWindow({
+local Window = WindUI:Window({
     Title = "Kat X",
     Icon = "door-open",
     Author = "by .Nusa!",
@@ -40,9 +40,18 @@ local Window = WindUI:CreateWindow({
 })
 
 -- Tabs
-local mm2Tab = Window:CreateTab("MM2 Tools")
-local visTab = Window:CreateTab("Visuals")
-local miscTab = Window:CreateTab("Misc")
+local mm2Tab = Window:Tab({
+    Title = "MM2 Tools",
+    Icon = "target"
+})
+local visTab = Window:Tab({
+    Title = "Visuals",
+    Icon = "eye"
+})
+local miscTab = Window:Tab({
+    Title = "Misc",
+    Icon = "settings"
+})
 
 -- === ESP / Role Highlights ===
 local highlights = {}
@@ -75,22 +84,27 @@ local function updateHighlight(plr)
     h.Enabled = highlightEnabled
 end
 
-mm2Tab:CreateToggle("Show Roles (ESP)", false, function(state)
-    highlightEnabled = state
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= player then
-            if state then
-                ensureHighlight(plr)
-                updateHighlight(plr)
-            else
-                if highlights[plr] then
-                    highlights[plr]:Destroy()
-                    highlights[plr] = nil
+mm2Tab:Toggle({
+    Title = "Show Roles (ESP)",
+    Desc = "Highlights players by role",
+    Default = false,
+    Callback = function(state)
+        highlightEnabled = state
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player then
+                if state then
+                    ensureHighlight(plr)
+                    updateHighlight(plr)
+                else
+                    if highlights[plr] then
+                        highlights[plr]:Destroy()
+                        highlights[plr] = nil
+                    end
                 end
             end
         end
     end
-end)
+})
 
 Players.PlayerAdded:Connect(function(plr)
     plr.CharacterAdded:Connect(function()
@@ -142,57 +156,79 @@ local function scanForGun()
 end
 
 local gunConn
-mm2Tab:CreateToggle("Gun Drop Indicator", false, function(state)
-    if state then
-        gunConn = RunService.Heartbeat:Connect(function()
-            pcall(function()
-                local guns = scanForGun()
-                for _, g in ipairs(guns) do
-                    if not gunBillboards[g] then
-                        local part = g:FindFirstChild("Handle") or g
-                        attachBillboard(part)
+mm2Tab:Toggle({
+    Title = "Gun Drop Indicator",
+    Default = false,
+    Callback = function(state)
+        if state then
+            gunConn = RunService.Heartbeat:Connect(function()
+                pcall(function()
+                    local guns = scanForGun()
+                    for _, g in ipairs(guns) do
+                        if not gunBillboards[g] then
+                            local part = g:FindFirstChild("Handle") or g
+                            attachBillboard(part)
+                        end
                     end
-                end
-                for inst, bb in pairs(gunBillboards) do
-                    if not inst.Parent then
-                        bb:Destroy()
-                        gunBillboards[inst] = nil
+                    for inst, bb in pairs(gunBillboards) do
+                        if not inst.Parent then
+                            bb:Destroy()
+                            gunBillboards[inst] = nil
+                        end
                     end
-                end
+                end)
             end)
-        end)
-    else
-        if gunConn then gunConn:Disconnect() end
-        for _, bb in pairs(gunBillboards) do
-            bb:Destroy()
+        else
+            if gunConn then gunConn:Disconnect() end
+            for _, bb in pairs(gunBillboards) do
+                bb:Destroy()
+            end
+            gunBillboards = {}
         end
-        gunBillboards = {}
     end
-end)
+})
 
 -- === Movement Tweaks ===
 local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-mm2Tab:CreateSlider("WalkSpeed", 8, 100, hum and hum.WalkSpeed or 16, function(v)
-    pcall(function()
-        local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.WalkSpeed = v end
-    end)
-end)
+mm2Tab:Slider({
+    Title = "WalkSpeed",
+    Min = 8,
+    Max = 100,
+    Default = hum and hum.WalkSpeed or 16,
+    Callback = function(v)
+        pcall(function()
+            local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if h then h.WalkSpeed = v end
+        end)
+    end
+})
 
-mm2Tab:CreateSlider("Jump Power", 50, 200, hum and hum.JumpPower or 50, function(v)
-    pcall(function()
-        local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if h then h.JumpPower = v end
-    end)
-end)
+mm2Tab:Slider({
+    Title = "Jump Power",
+    Min = 50,
+    Max = 200,
+    Default = hum and hum.JumpPower or 50,
+    Callback = function(v)
+        pcall(function()
+            local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if h then h.JumpPower = v end
+        end)
+    end
+})
 
 -- === Visuals ===
 local cam = workspace.CurrentCamera
-visTab:CreateSlider("FOV", 50, 120, cam.FieldOfView, function(v)
-    pcall(function()
-        cam.FieldOfView = v
-    end)
-end)
+visTab:Slider({
+    Title = "FOV",
+    Min = 50,
+    Max = 120,
+    Default = cam.FieldOfView,
+    Callback = function(v)
+        pcall(function()
+            cam.FieldOfView = v
+        end)
+    end
+})
 
 local crosshair = Instance.new("Frame")
 crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -202,12 +238,18 @@ crosshair.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 crosshair.Visible = false
 crosshair.Parent = player:WaitForChild("PlayerGui")
 
-visTab:CreateToggle("Crosshair", false, function(state)
-    crosshair.Visible = state
-end)
+visTab:Toggle({
+    Title = "Crosshair",
+    Default = false,
+    Callback = function(state)
+        crosshair.Visible = state
+    end
+})
 
 -- === Round Timer ===
-local timerLabel = miscTab:CreateLabel("Round: --:--")
+local timerLabel = miscTab:Label({
+    Title = "Round: --:--"
+})
 local function fmt(t)
     local m = math.floor(t / 60)
     local s = t % 60
